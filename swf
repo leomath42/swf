@@ -1,0 +1,248 @@
+#!/usr/bin/bash
+# 
+# variáveis globais
+#================================================================
+project_dir="$(echo ~)/Work/server/jboss/server/default/tmp/deploy"
+args=($@)           #sequencia, array
+arg_len=${#args[@]}
+output=""
+editor=""
+arq_tmp="/tmp/.swf" # arquivo de configuração do script, 
+                    # nele se encontra o editor setado 
+                    # pelo argumento [-en]
+
+js="\e[38;5;214m" 	# laranja
+jsp="\e[38;5;69m" 	# azul escuro
+jspf="\e[38;5;75m"	# azul claro
+css="\e[38;5;154m"	# verde
+reset="\e[0m"		# reseta a cor
+rec="\e[38;5;203m" 	# vermelho
+
+# funções do swf script
+#================================================================
+
+load_tmp_editor(){
+	# identifica se o diretório não existe.
+	if [[ ! -f $arq_tmp ]]; then
+		echo "arquivo de configuração do modo interativo não encontrado."
+		echo "use [swf -en editor] para configurar um editor para o modo"
+		echo "interativo, ou use [swf -h] para mais informações."
+		echo ""
+		exit 1;
+	fi
+	editor=$(cat $arq_tmp);
+}
+
+head(){
+	echo "script [swf] v1.0 feito por: Café com Livrinho (Leonardo Souza)"
+	echo "swf - (search siga war files)"
+	echo ""
+}
+
+help(){
+	head
+	echo "uso: swf [arg]...[arg_n]"
+	echo "   : swf -m [modulo] -s [submodulo] -t[tipo] arquivo"
+	echo "   : swf -m [modulo] -s [submodulo] -t[tipo] "
+	echo "   : swf -m [modulo] -s [submodulo]  "
+	echo "   : swf -m [modulo] "
+	echo "   : swf arquivo"
+	echo "   : swf -en /usr/bin/nano"
+	echo "   : nano \$(swf arquivo -o | grep -a 3 )"
+	echo "                          "
+	echo "ex.: -m aplog -s contaCorrente/pedidoCredito detalha"
+	echo "ex.: -m planejamento -t css"
+	echo "                          "
+	echo "argumentos: "
+	echo "   -m   essa opção filtra todos os arquivos pelo módulo      "
+	echo "         passado, caso não seja passado o nome de um arquivo,"
+	echo "         retorna todos os arquivos encontrados no modulo.    "
+	echo "   -s   faz o mesmo que -m, mas filtra por [submodulo].      "
+	echo "   -t   assim como [-m/-s] filtra e retorna arquivos, porém  "
+	echo "         filtra por tipo de arquivo [jspf, jsp, js, css etc] "
+	echo "   -en  configura um editor para o modo interativo.          "
+	echo "   -o   utiliza o modo 'inline' e retorna o texto no output. "
+	echo "   -h --help   imprime esse texto.                           "
+	echo ""
+
+}
+
+# irei editar essa função depois.
+print_rec(){
+	echo -e "$1Arquivos procurados possuem sub módulos."
+	echo -e "Utilize -m [modulo] -s [submodulo] para maior precisão."
+	echo -e "output da pesquisa: $string $reset"
+}
+ver_esp(){
+	case $1 in "" | *[:alpha:]* |*[!0-9]* ) echo "true";; *)echo "false" ;; esac;
+};
+interativo(){
+	editor=$1
+	# arquivos=$2
+	args=($@)
+	arquivos=(${args[@]:1:${#args[@]}})
+	echo "--------------------------------------------------------------"
+	echo "[t/T] abre todos os "${#arquivos[@]}" arquivos.               "
+	echo "[n]   onde [n] é o número indicador do arquivo.               "
+	echo "[n-m] abre todos os arquivos de [n] até [m].                  "
+	echo "[key] qualquer outra tecla cancela(ou use ctrl-c).            "
+	echo -n "[opcao]:  "
+	read opcao
+	case $opcao in
+		"t" | "T" ) 
+				$editor ${arquivos[@]}
+			;;
+		"" | *[!:space:]* | *[!0-9]* )
+				arr=($(echo "$opcao" | tr "-" "\n"))
+				inicio="${arr[0]}"
+				fim=$((${arr[1]}+1))
+				# echo ${#arquivos[@]}
+				# echo $fim
+				# echo $inicio
+
+				if [[ $inicio -lt 0 || $fim -gt ${#arquivos[@]} ]]; then
+					echo "região [n-m] especificada não existe."
+					exit 1;
+				fi
+				$editor "${arquivos[@]:$inicio:$fim}"
+				# $editor ${arquivos[$opcao]}
+			    ;;
+			*)
+				: 
+			;;
+	esac
+	# for i in ${arquivos[@]}; do
+	# 	echo $i;
+	# done
+}
+
+print_files(){
+	string=""
+	cont=0
+	args=($@) # define um array.
+	output=(${args[@]:1:${#args[@]}}) #exclui o primeiro argumento do array.
+	IFS="/"
+	for i in "${output[@]}"; do
+		if [[ -f $i ]]; then
+			# string=$file$(echo $i | awk --field-separator=$file '{print $2}';)
+			# string=$(echo $i | cut -d"/" -f $delimitador)
+			
+			# IFS="/"
+			array=($i) # transforma a string em array
+			len=${#array[@]} # pega o tamanho total do array
+			string=${array[len-1]} # pega a última substring do array que é um arq.
+			string="[$cont] $string"
+
+
+			# if [[ -n $(echo "$string" | grep "/") ]]; then
+			# 	print_rec $rec
+			# 	break
+			if [[ -n $(echo "$string" | grep "jspf") ]]; then
+				echo -e "$jspf$string$reset"
+			elif [[ -n $(echo "$string" | grep "jsp") ]]; then
+				echo -e "$jsp$string$reset"
+			elif [[ -n $(echo "$string" | grep "js") ]]; then
+				echo -e "$js$string$reset"
+				#statements
+			elif [[ -n $(echo "$string" | grep "css") ]]; then
+				echo -e "$css$string$reset"
+			else
+				# : #do nothing
+				echo -e "$string"
+			fi
+		fi
+
+
+		cont=$((cont + 1))
+		# break
+		# echo $file$(echo $i | awk --field-separator=$file '{print $2}';)
+	done #echo estado-fluxo-fin
+	
+	# reseta o separador interno	
+	unset IFS
+	
+}
+
+# echo -e "${#args[@]}"
+
+
+if [[ $arg_len -gt 7 ]]; then
+	echo ".erro"
+	exit 1
+fi
+
+if [[ $arg_len -eq 0 ]]; then
+	help; exit 0;
+elif [[ $arg_len -eq 1 && "${args[0]}" == "-h" || "${args[0]}" == "--help" ]]; then
+	help; exit 0;
+
+elif [[ $arg_len -eq 1 && "${args[0]}" == "-en" ]]; then
+	echo "sintaxe errada, use [swf -h] ou [swf --help] para mais informações."
+
+elif [[ $arg_len -eq 2 && "${args[0]}" == "-en" ]]; then
+	echo "${args[1]}" > /tmp/.swf
+
+else
+	head;
+	load_tmp_editor;
+
+	# variáveis locais
+	cont=0
+	modulo=""
+	submodulo=""
+	tipo=""
+	file=""
+	inline=""
+
+
+	while [[ "$cont" -lt "$arg_len" ]]; do
+		#statements
+		# echo "$cont"
+		word="${args[$cont]}"
+		# echo $word
+		case $word in
+			"-m" )
+				modulo="/${args[$cont+1]}"
+				cont=$((cont + 1))
+				# echo  $modulo
+			;;
+			"-s" )
+
+				# echo "$cont"
+				submodulo="/${args[$cont+1]}"
+				cont=$((cont + 1))
+			;;
+			"-t" )
+				echo -n ""
+				tipo="\<${args[$cont+1]}\>"
+				cont=$((cont + 1))
+			;;
+			"-o" )
+				inline="-o"
+			;;
+			# "-en" )
+			# 	:
+			# ;;
+			*)
+				file="$word"
+
+			;;
+
+		esac
+		cont=$((cont + 1))
+	done
+
+	output=$(find "$project_dir" -type f -name "$file*" | grep "$modulo$submodulo" | grep "$tipo")
+	# output=$(ls -Rp $project_dir | grep "$file*")
+	if [[ -n $inline ]]; then
+		echo ${output[@]}
+	
+    else
+    	# unset IFS
+    	print_files $file $output;
+    	interativo $editor ${output[@]};
+    	# $editor $(echo "${output[@]}")
+    	# echo "${output[@]}"
+    fi
+
+fi
